@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "netbird.fullname" . }}-management"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-management
+spec:
+  replicas: {{ .Values.management.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "netbird.selectorLabels" . | nindent 6 }}
+      netbird-app: {{ include "netbird.fullname" . }}-management
+  template:
+    metadata:
+      {{- with .Values.management.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        netbird-app: {{ include "netbird.fullname" . }}-management
+        {{- include "netbird.labels" . | nindent 8 }}
+        {{- with .Values.management.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      initContainers:
+        - name: copy-config
+          image: python:3.13-slim
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: utils
+              subPath: copy.py
+              readOnly: true
+              mountPath: /copy.py
+            - name: config
+              subPath: management.json
+              readOnly: true
+              mountPath: /management.json
+            - name: {{ .Values.management.persistence.volumeName }}
+              subPath: config
+              mountPath: {{ .Values.management.persistence.configMountPath }}
+            {{- with .Values.management.extra_volumeMounts }}
+            {{ toYaml . | nindent 12 }}
+            {{- end }}
+          command:
+            - python
+          args:
+            - /copy.py
+      containers:
+        - name: management
+          image: "{{ .Values.management.image.repository }}:{{ .Values.management.image.tag }}"
+          imagePullPolicy: {{ .Values.management.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.global.management.port }}
+              protocol: TCP
+          args:
+            - '--port'
+            - '{{ .Values.global.management.port }}'
+            - '--log-file'
+            - 'console'
+            - '--log-level'
+            - 'info'
+            - '--disable-anonymous-metrics=false'
+            - "--single-account-mode-domain={{ .Values.global.domain }}"
+            {{- range .Values.management.extra_args }}
+            - "{{ . }}"
+            {{- end }}
+          livenessProbe:
+            {{- if .Values.management.livenessProbe }}
+            {{- toYaml .Values.management.livenessProbe | nindent 12 }}
+            {{- else }}
+              tcpSocket:
+                port: {{ .Values.global.management.port }}
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            {{- end }}
+          readinessProbe:
+            {{- if .Values.management.readinessProbe }}
+            {{- toYaml .Values.management.readinessProbe | nindent 12 }}
+            {{- else }}
+              tcpSocket:
+                port: {{ .Values.global.management.port }}
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            {{- end }}
+          {{- with .Values.management.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: {{ .Values.management.persistence.volumeName }}
+              subPath: data
+              mountPath: {{ .Values.management.persistence.mountPath }}
+            - name: {{ .Values.management.persistence.volumeName }}
+              subPath: config
+              mountPath: {{ .Values.management.persistence.configMountPath }}
+            {{- with .Values.management.extra_volumeMounts }}
+            {{ toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: override
+        - name: utils
+          configMap:
+            name: {{ include "netbird.fullname" . }}-utils
+        - name: config
+          configMap:
+            name: {{ include "netbird.fullname" . }}-config
+        - name: {{ .Values.management.persistence.volumeName }}
+          {{- if .Values.management.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{- if .Values.management.persistence.existingClaim }} {{ .Values.management.persistence.existingClaim }}{{- else }} {{ include "netbird.fullname" . }}-management{{- end }}
+          {{- else }}
+          emptyDir:
+            sizeLimit: 1Gi
+          {{- end }}
+        {{- with .Values.management.extra_volumes }}
+        {{ toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.management.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.management.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.management.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

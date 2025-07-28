@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "netbird.fullname" . }}-dashboard"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-dashboard
+spec:
+  replicas: {{ .Values.dashboard.replicaCount }}
+  selector:
+    matchLabels:
+      netbird-app: {{ include "netbird.fullname" . }}-dashboard
+      {{- include "netbird.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.dashboard.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        netbird-app: {{ include "netbird.fullname" . }}-dashboard
+        {{- include "netbird.labels" . | nindent 8 }}
+        {{- with .Values.dashboard.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: dashboard
+          image: "{{ .Values.dashboard.image.repository }}:{{ .Values.dashboard.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.dashboard.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: NETBIRD_MGMT_API_ENDPOINT
+              value: "https://{{ required "global.domain must be set" .Values.global.domain }}:443"
+            - name: NETBIRD_MGMT_GRPC_API_ENDPOINT
+              value: "https://{{ .Values.global.domain }}:443"
+            - name: AUTH_AUDIENCE
+              value: "{{ .Values.global.auth.audience }}"
+            - name: AUTH_CLIENT_ID
+              value: "{{ .Values.global.auth.client }}"
+            - name: AUTH_AUTHORITY
+              value: "{{ .Values.global.auth.issuer }}"
+            - name: USE_AUTH0
+              value: {{ eq .Values.global.auth.provider "auth0" | quote }}
+            - name: AUTH_SUPPORTED_SCOPES
+              value: "openid profile email {{ .Values.global.auth.extra_scopes }}"
+            - name: AUTH_REDIRECT_URI
+              value: ""
+            - name: AUTH_SILENT_REDIRECT_URI
+              value: ""
+            - name: NETBIRD_TOKEN_SOURCE
+              value: "accessToken"
+            - name: NGINX_SSL_PORT
+              value: "443"
+          livenessProbe:
+            {{- if .Values.dashboard.livenessProbe }}
+            {{- toYaml .Values.dashboard.livenessProbe | nindent 12 }}
+            {{- else }}
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            {{- end }}
+          readinessProbe:
+            {{- if .Values.dashboard.readinessProbe }}
+            {{- toYaml .Values.dashboard.readinessProbe | nindent 12 }}
+            {{- else }}
+              httpGet:
+                path: /
+                port: http
+              initialDelaySeconds: 15
+              periodSeconds: 30
+            {{- end }}
+          {{- with .Values.dashboard.resources }}
+          resources:
+                {{- toYaml . | nindent 12 }}
+              {{- end }}
+          volumeMounts:
+            {{- toYaml .Values.dashboard.extra_volumeMounts | nindent 12 }}
+      volumes:
+        {{- toYaml .Values.dashboard.extra_volumes | nindent 8 }}
+      {{- with .Values.dashboard.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.dashboard.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

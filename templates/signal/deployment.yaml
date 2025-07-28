@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "netbird.fullname" . }}-signal"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-signal
+spec:
+  replicas: {{ .Values.signal.replicaCount }}
+  selector:
+    matchLabels:
+      netbird-app: {{ include "netbird.fullname" . }}-signal
+      {{- include "netbird.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.signal.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        netbird-app: {{ include "netbird.fullname" . }}-signal
+        {{- include "netbird.labels" . | nindent 8 }}
+        {{- with .Values.signal.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: signal
+          image: "{{ .Values.signal.image.repository }}:{{ .Values.signal.image.tag }}"
+          imagePullPolicy: {{ .Values.signal.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            {{- if .Values.signal.livenessProbe }}
+            {{- toYaml .Values.signal.livenessProbe | nindent 12 }}
+            {{- else }}
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            {{- end }}
+          readinessProbe:
+            {{- if .Values.signal.readinessProbe }}
+            {{- toYaml .Values.signal.readinessProbe | nindent 12 }}
+            {{- else }}
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            {{- end }}
+          {{- with .Values.signal.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: {{ .Values.signal.persistence.volumeName }}
+              mountPath: {{ .Values.signal.persistence.mountPath }}
+            {{- with .Values.signal.extra_volumeMounts }}
+            {{ toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: {{ .Values.signal.persistence.volumeName }}
+          {{- if .Values.signal.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{- if .Values.signal.persistence.existingClaim }} {{ .Values.signal.persistence.existingClaim }}{{- else }} {{ include "netbird.fullname" . }}-signal{{- end }}
+          {{- else }}
+          emptyDir:
+            sizeLimit: 1Gi
+          {{- end }}
+        {{- with .Values.signal.extra_volumes }}
+        {{ toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.signal.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.signal.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.signal.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

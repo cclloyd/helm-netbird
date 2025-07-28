@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "netbird.fullname" . }}-relay"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-relay
+spec:
+  replicas: {{ .Values.relay.replicaCount }}
+  selector:
+    matchLabels:
+      netbird-app: {{ include "netbird.fullname" . }}-relay
+      {{- include "netbird.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.relay.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        netbird-app: {{ include "netbird.fullname" . }}-relay
+        {{- include "netbird.labels" . | nindent 8 }}
+        {{- with .Values.relay.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: relay
+          image: "{{ .Values.relay.image.repository }}:{{ .Values.relay.image.tag }}"
+          imagePullPolicy: {{ .Values.relay.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.global.relay.port }}
+              protocol: TCP
+          env:
+            - name: NB_LOG_LEVEL
+              value: 'info'
+            - name: NB_LISTEN_ADDRESS
+              value: ':{{ .Values.global.relay.port }}'
+            - name: NB_EXPOSED_ADDRESS
+              value: "rel://{{ .Values.global.domain }}:{{ .Values.global.relay.port }}/relay"
+            - name: NB_AUTH_SECRET
+              value: {{ .Values.global.relay.secret }}
+          {{- with .Values.relay.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- toYaml .Values.relay.extra_volumeMounts | nindent 12 }}
+      volumes:
+        {{- toYaml .Values.relay.extra_volumes | nindent 8 }}
+      {{- with .Values.relay.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.relay.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

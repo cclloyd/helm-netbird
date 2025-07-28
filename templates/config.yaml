@@ -1,0 +1,236 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "netbird.fullname" . }}-config
+  namespace: {{ .Values.global.namespace }}
+data:
+  turnserver.conf: |
+    listening-port=3478
+    tls-listening-port=5349
+    external-ip={{ required "global.external_ip must be set" .Values.global.external_ip }}
+    min-port=49152
+    max-port=65535
+    fingerprint
+    lt-cred-mech
+    user=self:{{ required "global.turn_secret and global.relay_secret must be set to individual values.  You can generate a value by running `openssl rand -base64 32 | sed 's/=//g'`" .Values.global.coturn.secret }}
+    realm=wiretrustee.com
+    cert=/etc/coturn/certs/cert.pem
+    pkey=/etc/coturn/private/privkey.pem
+    log-file=stdout
+    no-software-attribute
+    pidfile="/var/tmp/turnserver.pid"
+    no-cli
+  management.json: |
+    {
+      "Stuns": [
+        {
+          "Proto": "udp",
+          "URI": "stun:{{ .Values.global.domain }}:3478",
+          "Username": "",
+          "Password": null
+        }
+      ],
+      "TURNConfig": {
+        "Turns": [
+          {
+            "Proto": "udp",
+            "URI": "turn:{{ .Values.global.domain }}:3478",
+            "Username": "self",
+            "Password": "{{ .Values.global.coturn.secret }}"
+          }
+        ],
+        "CredentialsTTL": "12h",
+        "Secret": "secret",
+        "TimeBasedCredentials": false
+      },
+      "Relay": {
+        "Addresses": [
+          "rels://{{ .Values.global.domain }}:{{ .Values.global.relay.port }}/relay"
+        ],
+        "CredentialsTTL": "24h",
+        "Secret": "{{ .Values.global.relay.secret }}"
+      },
+      "Signal": {
+        "Proto": "https",
+        "URI": "{{ .Values.global.domain }}:443",
+        "Username": "",
+        "Password": null
+      },
+      "ReverseProxy": {
+        "TrustedHTTPProxies": [],
+        "TrustedHTTPProxiesCount": 0,
+        "TrustedPeers": [
+          "0.0.0.0/0"
+        ]
+      },
+      "Datadir": "",
+      "DataStoreEncryptionKey": "",
+      "StoreConfig": {
+        "Engine": "sqlite"
+      },
+      "HttpConfig": {
+        "Address": "0.0.0.0:80",
+        "AuthIssuer": "{{ .Values.global.auth.issuer }}",
+        "AuthAudience": "{{ .Values.global.auth.audience }}",
+        "AuthKeysLocation": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/certs",
+        "AuthUserIDClaim": "{{ .Values.global.auth.username_claim }}",
+        "CertFile": "",
+        "CertKey": "",
+        "IdpSignKeyRefreshEnabled": true,
+        "OIDCConfigEndpoint": "{{ .Values.global.auth.issuer }}/.well-known/openid-configuration"
+      },
+      "IdpManagerConfig": {
+        "ManagerType": "{{ .Values.global.auth.provider }}",
+        "ClientConfig": {
+          "Issuer": "{{ .Values.global.auth.issuer }}",
+          "TokenEndpoint": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/token",
+          "ClientID": "{{ .Values.global.auth.backend.client }}",
+          "ClientSecret": "{{ .Values.global.auth.backend.secret}}",
+          "GrantType": "client_credentials"
+        },
+        "ExtraConfig": {
+          "AdminEndpoint": "{{ .Values.global.auth.admin }}"
+        },
+        "Auth0ClientCredentials": null,
+        "AzureClientCredentials": null,
+        "KeycloakClientCredentials": null,
+        "ZitadelClientCredentials": null
+      },
+      "DeviceAuthorizationFlow": {
+        "Provider": "hosted",
+        "ProviderConfig": {
+          "Audience": "{{ .Values.global.auth.audience }}",
+          "AuthorizationEndpoint": "",
+          "Domain": "",
+          "ClientID": "{{ .Values.global.auth.client }}",
+          "ClientSecret": "{{ .Values.global.auth.secret }}",
+          "TokenEndpoint": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/token",
+          "DeviceAuthEndpoint": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/auth/device",
+          "Scope": "openid",
+          "UseIDToken": false,
+          "RedirectURLs": null
+        }
+      },
+      "PKCEAuthorizationFlow": {
+        "ProviderConfig": {
+          "Audience": "{{ .Values.global.auth.audience }}",
+          "ClientID": "{{ .Values.global.auth.client }}",
+          "ClientSecret": "{{ .Values.global.auth.secret }}",
+          "Domain": "",
+          "AuthorizationEndpoint": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/auth",
+          "TokenEndpoint": "{{ .Values.global.auth.issuer }}/protocol/openid-connect/token",
+          "Scope": "openid profile email {{ .Values.global.auth.extra_scopes }}",
+          "RedirectURLs": [
+            "http://localhost:53000"
+          ],
+          "UseIDToken": false,
+          "DisablePromptLogin": false,
+          "LoginFlag": 1
+        }
+      }
+    }
+  copy.py: |
+    import json
+    from pathlib import Path
+
+    SRC_PATH = Path('/management.json')
+    DEST_PATH = Path('/etc/netbird/management.json')
+
+    def load_json(path):
+        print(f'Loading JSON from {path}')
+        with open(path, 'r') as f:
+            return json.load(f)
+
+    def save_json(path, data):
+        print(f'Saving merged JSON to {path}')
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    def merge_dicts(source, destination, path=''):
+        for key, value in source.items():
+            full_path = f'{path}.{key}' if path else key
+            if value in (None, '', [], {}, False):
+                if key in destination:
+                    print(f'{full_path}\t\t->    SKIP   ->\t\t')
+                continue
+
+            if isinstance(value, dict) and isinstance(destination.get(key), dict):
+                merge_dicts(value, destination[key], full_path)
+            else:
+                if key in destination and destination[key] != value:
+                    print(f'{full_path}\t\t-> OVERWRITE ->\t\t{destination[key]} -> {value}')
+                elif key not in destination:
+                    print(f'{full_path}\t\t->    NEW    ->\t\t{value}')
+                destination[key] = value
+        return destination
+
+    def main():
+        if not DEST_PATH.exists():
+            print(f'{DEST_PATH} does not exist. Copying {SRC_PATH} as-is.')
+            DEST_PATH.write_text(SRC_PATH.read_text())
+        else:
+            print(f'{DEST_PATH} exists. Merging contents from {SRC_PATH}.')
+            src_data = load_json(SRC_PATH)
+            dest_data = load_json(DEST_PATH)
+            merged = merge_dicts(src_data, dest_data)
+            save_json(DEST_PATH, merged)
+
+    if __name__ == '__main__':
+        main()
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-utils
+  namespace: {{ .Values.global.namespace }}
+data:
+  copy.py: |
+    import json
+    from pathlib import Path
+
+    SRC_PATH = Path('/management.json')
+    DEST_PATH = Path('/etc/netbird/management.json')
+
+    def load_json(path):
+        print(f'Loading JSON from {path}')
+        with open(path, 'r') as f:
+            return json.load(f)
+
+    def save_json(path, data):
+        print(f'Saving merged JSON to {path}')
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    def merge_dicts(source, destination, path=''):
+        for key, value in source.items():
+            full_path = f'{path}.{key}' if path else key
+            if value in (None, '', [], {}, False):
+                if key in destination:
+                    print(f'{full_path}\t\t->    SKIP   ->\t\t')
+                continue
+
+            if isinstance(value, dict) and isinstance(destination.get(key), dict):
+                merge_dicts(value, destination[key], full_path)
+            else:
+                if key in destination and destination[key] != value:
+                    print(f'{full_path}\t\t-> OVERWRITE ->\t\t{destination[key]} -> {value}')
+                elif key not in destination:
+                    print(f'{full_path}\t\t->    NEW    ->\t\t{value}')
+                destination[key] = value
+        return destination
+
+    def main():
+        if not DEST_PATH.exists():
+            print(f'{DEST_PATH} does not exist. Copying {SRC_PATH} as-is.')
+            DEST_PATH.write_text(SRC_PATH.read_text())
+        else:
+            print(f'{DEST_PATH} exists. Merging contents from {SRC_PATH}.')
+            src_data = load_json(SRC_PATH)
+            dest_data = load_json(DEST_PATH)
+            merged = merge_dicts(src_data, dest_data)
+            save_json(DEST_PATH, merged)
+
+    if __name__ == '__main__':
+        main()
+

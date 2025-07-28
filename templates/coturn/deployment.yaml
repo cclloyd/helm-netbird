@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ include "netbird.fullname" . }}-coturn"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    netbird-app: {{ include "netbird.fullname" . }}-coturn
+    {{- include "netbird.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.coturn.replicaCount }}
+  selector:
+    matchLabels:
+      netbird-app: {{ include "netbird.fullname" . }}-coturn
+      {{- include "netbird.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.coturn.annotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        netbird-app: {{ include "netbird.fullname" . }}-coturn
+        {{- include "netbird.labels" . | nindent 8 }}
+        {{- with .Values.coturn.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      hostNetwork: true
+      containers:
+        - name: coturn
+          image: "{{ .Values.coturn.image.repository }}:{{ .Values.coturn.image.tag }}"
+          imagePullPolicy: {{ .Values.coturn.image.pullPolicy }}
+          args:
+            - -c /etc/turnserver.conf
+            - -min-port={{ .Values.global.coturn.min_port }}
+            - --max-port={{ .Values.global.coturn.max_port }}
+          {{- with .Values.coturn.resources }}
+          livenessProbe:
+            {{- toYaml .Values.coturn.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.coturn.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              subPath: turnserver.conf
+              readOnly: true
+              mountPath: /etc/turnserver.conf
+            {{- with .Values.coturn.extra_volumeMounts }}
+            {{ toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "netbird.fullname" . }}-config
+        {{- with .Values.coturn.extra_volumes }}
+        {{ toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.coturn.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.coturn.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.coturn.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

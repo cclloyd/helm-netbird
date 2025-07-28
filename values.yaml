@@ -1,0 +1,191 @@
+# Default values for netbird.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+global:
+  namespace: 'netbird'
+  # Domain name used for access, ex netbird.example.com
+  domain: ''
+  # Enables secure connections from the load balancer for outside connections
+  https: false
+  external_ip: ''
+  auth:
+    provider: 'keycloak'
+    issuer: ''  # https://keycloak.example.com/realms/master
+    admin: ''   # https://keycloak.example.com/admin/realms/master
+    extra_scopes: 'offline_access api'
+    client: ''
+    secret: ''  # Not needed if following Netbird keycloak guide
+    audience: ''
+    username_claim: preferred_username
+    backend:
+      client: ''
+      secret: ''  # Is needed if following Netbird keycloak guide
+      audience: ''
+      extra_scopes: 'offline_access api'
+
+  dashboard:
+    port: 80
+  management:
+    port: 80
+  relay:
+    port: 33080
+    secret: ''
+  signal:
+    port: 80
+  coturn:
+    port: 3478
+    secret: ''
+    # Defines port range for media exchange
+    min_port: 49160
+    max_port: 49200
+
+  ingress:
+    enabled: false
+    className: ''
+    annotations: {}
+    extra_hosts: []
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: { }
+    name: ""
+
+
+dashboard:
+  image:
+    repository: netbirdio/dashboard
+    tag: v2.14.0
+    pullPolicy: IfNotPresent
+  annotations: {}
+  labels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  replicaCount: 1
+  resources: {}
+  livenessProbe:
+  readinessProbe:
+  service:
+    type: ClusterIP
+  extra_volumes: []
+  extra_volumeMounts: []
+
+
+management:
+  image:
+    repository: netbirdio/management
+    tag: 0.51.2
+    pullPolicy: IfNotPresent
+  annotations: {}
+  labels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  replicaCount: 1
+  resources: {}
+  livenessProbe:
+  readinessProbe:
+  service:
+    type: ClusterIP
+  extra_volumes: []
+  extra_volumeMounts: []
+  extra_args: []
+  persistence:
+    enabled: true
+    storageClass:
+    volumeName: 'data'
+    existingClaim: ''
+    mountPath: /var/lib/netbird
+    configMountPath: /etc/netbird
+    subPath: ''
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+    volumeMode:
+    annotations: {}
+    labels: {}
+    selector: {}
+    dataSource: {}
+
+
+relay:
+  image:
+    repository: netbirdio/relay
+    tag: 0.51.2
+    pullPolicy: IfNotPresent
+  annotations: {}
+  labels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  replicaCount: 1
+  resources: {}
+  service:
+    type: ClusterIP
+  extra_volumes: []
+  extra_volumeMounts: []
+  extra_env: {}
+
+
+signal:
+  image:
+    repository: netbirdio/signal
+    tag: 0.51.2
+    pullPolicy: IfNotPresent
+  annotations: {}
+  labels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  replicaCount: 1
+  resources: {}
+  livenessProbe:
+  readinessProbe:
+  service:
+    type: ClusterIP
+  extra_volumes: []
+  extra_volumeMounts: []
+  persistence:
+    enabled: true
+    storageClass:
+    volumeName: 'data'
+    existingClaim: ''
+    mountPath: /var/lib/netbird
+    subPath: ''
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+    volumeMode:
+    annotations: {}
+    labels: {}
+    selector: {}
+    dataSource: {}
+    overrideVolume:
+    overrideVolumeMount:
+
+
+
+
+coturn:
+  image:
+    repository: coturn/coturn
+    tag: 4.7.0
+    pullPolicy: IfNotPresent
+  annotations: {}
+  labels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  replicaCount: 1
+  resources: {}
+  livenessProbe:
+  readinessProbe:
+  service:
+    type: ClusterIP
+    annotations: {}
+  extra_volumes: []
+  extra_volumeMounts: []
+
+

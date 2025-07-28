@@ -1,0 +1,120 @@
+{{- if .Values.global.ingress.enabled -}}
+---
+{{- $fullName := include "netbird.fullname" . -}}
+{{- if and .Values.global.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.ingress.annotations "kubernetes.io/ingress.class" .Values.global.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+  {{- with .Values.global.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+    {{- if .Values.global.https }}
+    kubernetes.io/tls-acme: "true"
+    {{- end }}
+spec:
+  {{- if and .Values.global.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.ingress.className }}
+  {{- end }}
+  {{- if .Values.global.https }}
+  tls:
+    - secretName: "tls-{{ include "netbird.fullname" . }}"
+      hosts:
+      - {{ .Values.global.domain }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.domain }}
+      http:
+        paths:
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "netbird.fullname" . }}-management
+              port:
+                name: http
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ include "netbird.fullname" . }}-dashboard
+              port:
+                name: http
+
+
+
+
+---
+{{- if and .Values.global.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.global.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.global.ingress.annotations "kubernetes.io/ingress.class" .Values.global.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: "{{ $fullName }}-grpc"
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+  {{- with .Values.global.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+    {{- if .Values.global.https }}
+    kubernetes.io/tls-acme: "true"
+    {{- end }}
+    {{- if eq .Values.global.ingress.className "nginx" }}
+    nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    {{- end }}
+spec:
+  {{- if and .Values.global.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.global.ingress.className }}
+  {{- end }}
+  {{- if .Values.global.https }}
+  tls:
+    - secretName: "tls-{{ include "netbird.fullname" . }}"
+      hosts:
+      - {{ .Values.global.domain }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.domain }}
+      http:
+        paths:
+        - path: /management.ManagementService/
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: {{ include "netbird.fullname" . }}-management
+              port:
+                name: http
+
+        - path: /signalexchange.SignalExchange/
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: {{ include "netbird.fullname" . }}-signal
+              port:
+                name: http
+
+{{- end }}
