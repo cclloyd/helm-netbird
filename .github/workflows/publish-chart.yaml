@@ -22,8 +22,10 @@ jobs:
       # 3. Package your chart, overriding version with the Git SHA
       - name: Package NetBird chart
         run: |
+          pwd
+          ls
           mkdir -p packages
-          helm package charts/netbird \
+          helm package ./ \
             --version "${{ github.sha }}" \
             --destination packages
 
