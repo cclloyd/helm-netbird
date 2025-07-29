@@ -1,0 +1,60 @@
+name: Publish Helm chart to central repo
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout your source chart
+      - name: Checkout helm-netbird
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # 2. Install Helm
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      # 3. Package your chart, overriding version with the Git SHA
+      - name: Package NetBird chart
+        run: |
+          mkdir -p packages
+          helm package charts/netbird \
+            --version "${{ github.sha }}" \
+            --destination packages
+
+      # 4. Checkout the central charts repo
+      - name: Checkout helm-charts
+        uses: actions/checkout@v3
+        with:
+          repository: cclloyd/helm-charts
+          token: ${{ secrets.HELM_CHARTS_PAT }}
+          path: helm-charts
+
+      # 5. Copy the new package into helm-charts/charts/
+      - name: Copy packaged chart
+        run: |
+          mkdir -p helm-charts/charts
+          cp packages/netbird-${{ github.sha }}.tgz helm-charts/charts/
+
+      # 6. Update the index.yaml (merging with existing)
+      - name: Regenerate index.yaml
+        run: |
+          helm repo index helm-charts \
+            --url 'https://cclloyd.github.io/helm-charts' \
+            --merge helm-charts/index.yaml \
+            --charts-path charts
+
+      # 7. Commit & push back to helm-charts
+      - name: Commit & push
+        run: |
+          cd helm-charts
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          git add charts index.yaml
+          git diff --quiet || git commit -m "Publish netbird chart ${{ github.sha }}"
+          git push origin HEAD:main
