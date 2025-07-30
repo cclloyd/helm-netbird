@@ -26,7 +26,6 @@ jobs:
         id: prepare
         run: |
           set -e
-
           # Get the latest tag from the source repository
           latest_tag=$(git ls-remote --tags origin \
           | awk '{print $2}' \
@@ -46,17 +45,24 @@ jobs:
             echo "gh-pages branch exists. Cloning..."
             git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
             cd helm-charts
-            # Find the highest N for netbird-X.Y.Z-N.tgz on the branch
-            max_ext=0
+
+            max_suffix=0
             for f in netbird-${latest_tag}-*.tgz; do
-              if [ ! -e "$f" ]; then continue; fi
-              ext=$(echo "$f" | sed -nE "s/.*netbird-${latest_tag}-([0-9]+)\.tgz/\1/p")
-              if [ -n "$ext" ] && [ "$ext" -gt "$max_ext" ]; then
-                max_ext=$ext
+              if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
+                num="${BASH_REMATCH[1]}"
+                if [[ $num -gt $max_suffix ]]; then
+                  max_suffix=$num
+                fi
               fi
             done
-            next_ext=$((max_ext + 1))
-            version="${latest_tag}-${next_ext}"
+
+            # If netbird-${latest_tag}.tgz exists (without -N), treat as -1
+            if [ -e "netbird-${latest_tag}.tgz" ] && [ "$max_suffix" -lt 1 ]; then
+              max_suffix=1
+            fi
+
+            next_suffix=$((max_suffix + 1))
+            version="${latest_tag}-${next_suffix}"
             cd ..
           else
             echo "gh-pages branch DOES NOT exist. Initializing..."
