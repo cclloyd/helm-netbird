@@ -94,29 +94,34 @@ jobs:
             --version "${VERSION}" \
             --destination packages
 
-      - name: Copy packaged chart to helm-charts root
+      - name: Copy packaged chart to subfolder (/charts/netbird)
         run: |
-          cp packages/netbird-${VERSION}.tgz helm-charts/
+          mkdir -p helm-charts/charts/netbird
+          cp packages/netbird-${VERSION}.tgz helm-charts/charts/netbird/
 
-      - name: Regenerate index.yaml at repo root
+      - name: Regenerate index.yaml at root (recursive)
         run: |
           cd helm-charts
+          CHARTS_URL='https://cclloyd.github.io/helm-charts/charts/netbird'
           INDEX_FILE="index.yaml"
+          # Helm repo index does NOT recurse, so index must be rebuilt by merging each time.
           if [ -f "${INDEX_FILE}" ]; then
-            helm repo index . \
-              --url 'https://cclloyd.github.io/helm-charts' \
+            helm repo index charts/netbird \
+              --url "${CHARTS_URL}" \
               --merge "${INDEX_FILE}"
           else
-            helm repo index . \
-              --url 'https://cclloyd.github.io/helm-charts'
+            helm repo index charts/netbird \
+              --url "${CHARTS_URL}"
           fi
+          # Move/Copy new index up to root
+          cp charts/netbird/index.yaml .
 
       - name: Commit & push to gh-pages
         run: |
           cd helm-charts
           git config user.name 'GitHub Actions'
           git config user.email 'actions@github.com'
-          git add netbird-*.tgz index.yaml .nojekyll
+          git add charts/netbird/netbird-*.tgz index.yaml .nojekyll
           git commit -m "[ci] Publish netbird chart ${VERSION}" || echo "Nothing to commit"
           git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
           git push origin gh-pages
