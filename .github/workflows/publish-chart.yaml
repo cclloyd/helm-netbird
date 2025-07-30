@@ -26,19 +26,18 @@ jobs:
         id: prepare
         run: |
           set -e
-          # Get the latest tag from the source repository
+          # Get the latest tag from source repo as before
           latest_tag=$(git ls-remote --tags origin \
-          | awk '{print $2}' \
-          | sed 's#refs/tags/##' \
-          | sort -V \
-          | tail -n1)
+            | awk '{print $2}' \
+            | sed 's#refs/tags/##' \
+            | sort -V \
+            | tail -n1)
 
           if [ -z "$latest_tag" ]; then
             latest_tag="0.1.0"
           fi
           echo "Source latest tag: $latest_tag"
 
-          # Try to clone gh-pages branch, or initialize if missing
           mkdir -p helm-charts
           GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
           if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages > /dev/null; then
@@ -46,23 +45,25 @@ jobs:
             git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
             cd helm-charts
 
-            max_suffix=0
-            for f in netbird-${latest_tag}-*.tgz; do
-              if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
-                num="${BASH_REMATCH[1]}"
-                if [[ $num -gt $max_suffix ]]; then
-                  max_suffix=$num
+            # Check if the base version exists
+            base_version_file="netbird-${latest_tag}.tgz"
+            if [ ! -e "${base_version_file}" ]; then
+              # The plain version doesn't exist: use it
+              version="${latest_tag}"
+            else
+              # The base version exists, so look for extension suffixes
+              max_ext=0
+              for f in netbird-${latest_tag}-*.tgz; do
+                if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
+                  num="${BASH_REMATCH[1]}"
+                  if [[ $num -gt $max_ext ]]; then
+                    max_ext=$num
+                  fi
                 fi
-              fi
-            done
-
-            # If netbird-${latest_tag}.tgz exists (without -N), treat as -1
-            if [ -e "netbird-${latest_tag}.tgz" ] && [ "$max_suffix" -lt 1 ]; then
-              max_suffix=1
+              done
+              next_ext=$((max_ext + 1))
+              version="${latest_tag}-${next_ext}"
             fi
-
-            next_suffix=$((max_suffix + 1))
-            version="${latest_tag}-${next_suffix}"
             cd ..
           else
             echo "gh-pages branch DOES NOT exist. Initializing..."
@@ -72,7 +73,7 @@ jobs:
             git rm -rf . || true
             git config user.name 'GitHub Actions'
             git config user.email 'actions@github.com'
-            version="${latest_tag}-1"
+            version="${latest_tag}"
             touch .nojekyll
             git add .nojekyll
             git commit -m "Initialize gh-pages with .nojekyll"
