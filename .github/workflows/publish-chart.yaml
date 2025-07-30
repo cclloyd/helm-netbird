@@ -1,4 +1,4 @@
-name: Publish Helm chart to gh-pages
+name: Publish Helm chart helm-charts branch using gh-pages
 
 on:
   push:
