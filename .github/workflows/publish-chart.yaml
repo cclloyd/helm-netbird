@@ -49,4 +49,4 @@ jobs:
         env:
           CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
         with:
-          charts_dir: .          # Use your chart directory if different
+          charts_dir: .  # If your Chart.yaml is at the repo root
