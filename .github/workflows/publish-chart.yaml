@@ -26,76 +26,55 @@ jobs:
         id: prepare
         run: |
           set -e
-          ref_type="${GITHUB_REF_TYPE:-}"
-          ref_name="${GITHUB_REF_NAME:-}"
 
-          # Find latest tag from source repo
+          # Find the latest semver tag: vX.X.X
           latest_tag=$(git ls-remote --tags origin \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
-            | sort -V \
-            | tail -n1)
-
-          if [ -z "$latest_tag" ]; then
-            latest_tag="0.1.0"
-          fi
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n1)
+          latest_tag=${latest_tag:-v0.1.0}
 
           mkdir -p helm-charts
           GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
-          if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages > /dev/null; then
+          if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages >/dev/null; then
             git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
             cd helm-charts
-            # Figure out chart version logic based on branch/tag
-            if [[ "${GITHUB_REF}" == refs/heads/dev ]]; then
-              # On dev branch, append -N if necessary
-              base_version_file="netbird-${latest_tag}.tgz"
-              if [ ! -e "${base_version_file}" ]; then
-                version="${latest_tag}"
-              else
-                max_ext=0
-                for f in netbird-${latest_tag}-*.tgz; do
-                  if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
-                    num="${BASH_REMATCH[1]}"
-                    if [[ $num -gt $max_ext ]]; then
-                      max_ext=$num
-                    fi
-                  fi
-                done
-                next_ext=$((max_ext + 1))
-                version="${latest_tag}-${next_ext}"
-              fi
-            elif [[ "${GITHUB_REF}" =~ refs/tags/v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-              # On tag run, use the tag as version
-              version="${ref_name}"
-              # Remove 'v' prefix for Chart.yaml
-              if [[ $version =~ ^v ]]; then
-                version="${version:1}"
-              fi
+            if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
+              base_version="${latest_tag#v}"
+              max_n=0
+              for f in netbird-${base_version}-*.tgz; do
+                [[ $f =~ netbird-${base_version}-([0-9]+)\.tgz ]] && [[ ${BASH_REMATCH[1]} -gt $max_n ]] && max_n=${BASH_REMATCH[1]}
+              done
+              version="${base_version}-$((max_n + 1))"
+            elif [[ "${GITHUB_REF}" =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+              version="${BASH_REMATCH[1]}"
             else
-              version="${latest_tag}"
+              version="${latest_tag#v}"
             fi
             cd ..
           else
-            # Initialize gh-pages branch if absent
             git clone --no-checkout "$GH_REPO_URL" helm-charts
             cd helm-charts
             git checkout --orphan gh-pages
             git rm -rf . || true
             git config user.name 'GitHub Actions'
             git config user.email 'actions@github.com'
-            version="${latest_tag}"
+            version="${latest_tag#v}"
             touch .nojekyll
             git add .nojekyll
             git commit -m "Initialize gh-pages with .nojekyll"
             cd ..
           fi
-          # Remove 'v' prefix for Chart.yaml (if not already removed)
-          version_for_chart="$version"
-          if [[ "$version_for_chart" =~ ^v ]]; then
-            version_for_chart="${version_for_chart:1}"
+
+          # Fail if version could not be determined
+          if [ -z "$version" ]; then
+            echo "ERROR: Could not determine chart version."
+            exit 1
           fi
-          echo "Using chart version: $version_for_chart"
-          echo "VERSION=${version_for_chart}" >> $GITHUB_ENV
+
+          echo "Using chart version: $version"
+          echo "VERSION=$version" >> $GITHUB_ENV
           echo "PKG_VERSION=$version" >> $GITHUB_ENV
 
       - name: Update Chart.yaml version
