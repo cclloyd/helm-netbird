@@ -1,4 +1,4 @@
-name: Publish Helm chart helm-charts branch using gh-pages
+name: Publish Helm chart helm-charts using main branch
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Prepare gh-pages branch and compute chart version
+      - name: Prepare main branch and compute chart version
         id: prepare
         run: |
           set -e
@@ -37,8 +37,8 @@ jobs:
 
           mkdir -p helm-charts
           GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
-          if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages >/dev/null; then
-            git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
+          if git ls-remote --exit-code --heads "$GH_REPO_URL" main >/dev/null; then
+            git clone --single-branch --branch main "$GH_REPO_URL" helm-charts
             cd helm-charts
             if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
               base_version="${latest_tag#v}"
@@ -56,14 +56,14 @@ jobs:
           else
             git clone --no-checkout "$GH_REPO_URL" helm-charts
             cd helm-charts
-            git checkout --orphan gh-pages
+            git checkout --orphan main
             git rm -rf . || true
             git config user.name 'GitHub Actions'
             git config user.email 'actions@github.com'
             version="${latest_tag#v}"
             touch .nojekyll
             git add .nojekyll
-            git commit -m "Initialize gh-pages with .nojekyll"
+            git commit -m "Initialize main with .nojekyll"
             cd ..
           fi
 
@@ -108,12 +108,14 @@ jobs:
           fi
           cp charts/netbird/index.yaml .
 
-      - name: Commit & push to gh-pages
+      - name: Commit & push to main
         run: |
           cd helm-charts
           git config user.name 'GitHub Actions'
           git config user.email 'actions@github.com'
+          # Ensure .nojekyll exists as an empty file
+          : > .nojekyll
           git add charts/netbird/netbird-*.tgz index.yaml .nojekyll
           git commit -m "[ci] Publish netbird chart ${PKG_VERSION}" || echo "Nothing to commit"
           git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
-          git push origin gh-pages
+          git push origin main
