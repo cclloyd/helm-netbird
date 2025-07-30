@@ -1,4 +1,4 @@
-name: Publish Helm chart helm-charts using main branch
+name: Publish Helm chart (via Chart Releaser)
 
 on:
   push:
@@ -8,114 +8,22 @@ on:
       - 'v*.*.*'
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout helm-netbird
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Setup Helm
+      - name: Set up Helm
         uses: azure/setup-helm@v3
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
+      - name: Run Chart Releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
+        with:
+          charts_dir: ./charts
+          charts_repo_url: https://cclloyd.github.io/helm-charts
 
-      - name: Prepare main branch and compute chart version
-        id: prepare
-        run: |
-          set -e
-
-          # Find the latest semver tag: vX.X.X
-          latest_tag=$(git ls-remote --tags origin \
-            | awk '{print $2}' \
-            | sed 's#refs/tags/##' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V | tail -n1)
-          latest_tag=${latest_tag:-v0.1.0}
-
-          mkdir -p helm-charts
-          GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
-          if git ls-remote --exit-code --heads "$GH_REPO_URL" main >/dev/null; then
-            git clone --single-branch --branch main "$GH_REPO_URL" helm-charts
-            cd helm-charts
-            if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
-              base_version="${latest_tag#v}"
-              max_n=0
-              for f in netbird-${base_version}-*.tgz; do
-                [[ $f =~ netbird-${base_version}-([0-9]+)\.tgz ]] && [[ ${BASH_REMATCH[1]} -gt $max_n ]] && max_n=${BASH_REMATCH[1]}
-              done
-              version="${base_version}-$((max_n + 1))"
-            elif [[ "${GITHUB_REF}" =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-              version="${BASH_REMATCH[1]}"
-            else
-              version="${latest_tag#v}"
-            fi
-            cd ..
-          else
-            git clone --no-checkout "$GH_REPO_URL" helm-charts
-            cd helm-charts
-            git checkout --orphan main
-            git rm -rf . || true
-            git config user.name 'GitHub Actions'
-            git config user.email 'actions@github.com'
-            version="${latest_tag#v}"
-            touch .nojekyll
-            git add .nojekyll
-            git commit -m "Initialize main with .nojekyll"
-            cd ..
-          fi
-
-          # Fail if version could not be determined
-          if [ -z "$version" ]; then
-            echo "ERROR: Could not determine chart version."
-            exit 1
-          fi
-
-          echo "Using chart version: $version"
-          echo "VERSION=$version" >> $GITHUB_ENV
-          echo "PKG_VERSION=$version" >> $GITHUB_ENV
-
-      - name: Update Chart.yaml version
-        run: |
-          yq -i ".version = \"${VERSION}\"" Chart.yaml
-
-      - name: Package NetBird chart
-        run: |
-          mkdir -p packages
-          helm package ./ \
-            --version "${VERSION}" \
-            --destination packages
-
-      - name: Copy packaged chart to subfolder (/charts/netbird)
-        run: |
-          mkdir -p helm-charts/charts/netbird
-          cp packages/netbird-${PKG_VERSION}.tgz helm-charts/charts/netbird/
-
-      - name: Regenerate index.yaml at root (recursive)
-        run: |
-          cd helm-charts
-          CHARTS_URL='https://cclloyd.github.io/helm-charts/charts/netbird'
-          INDEX_FILE="index.yaml"
-          if [ -f "${INDEX_FILE}" ]; then
-            helm repo index charts/netbird \
-              --url "${CHARTS_URL}" \
-              --merge "${INDEX_FILE}"
-          else
-            helm repo index charts/netbird \
-              --url "${CHARTS_URL}"
-          fi
-          cp charts/netbird/index.yaml .
-
-      - name: Commit & push to main
-        run: |
-          cd helm-charts
-          git config user.name 'GitHub Actions'
-          git config user.email 'actions@github.com'
-          # Ensure .nojekyll exists as an empty file
-          : > .nojekyll
-          git add charts/netbird/netbird-*.tgz index.yaml .nojekyll
-          git commit -m "[ci] Publish netbird chart ${PKG_VERSION}" || echo "Nothing to commit"
-          git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
-          git push origin main
