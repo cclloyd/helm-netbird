@@ -28,7 +28,12 @@ jobs:
           set -e
 
           # Get the latest tag from the source repository
-          latest_tag=$(git tag --list --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          latest_tag=$(git ls-remote --tags origin \
+          | awk '{print $2}' \
+          | sed 's#refs/tags/##' \
+          | sort -V \
+          | tail -n1)
+
           if [ -z "$latest_tag" ]; then
             latest_tag="0.1.0"
           fi
