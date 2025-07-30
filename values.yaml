@@ -56,7 +56,7 @@ global:
 dashboard:
   image:
     repository: netbirdio/dashboard
-    tag: v2.14.0
+    tag: v2.15.0
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -76,7 +76,7 @@ dashboard:
 management:
   image:
     repository: netbirdio/management
-    tag: 0.51.2
+    tag: 0.52.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -113,7 +113,7 @@ management:
 relay:
   image:
     repository: netbirdio/relay
-    tag: 0.51.2
+    tag: 0.52.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -132,7 +132,7 @@ relay:
 signal:
   image:
     repository: netbirdio/signal
-    tag: 0.51.2
+    tag: 0.52.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}

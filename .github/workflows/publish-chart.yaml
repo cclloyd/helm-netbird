@@ -1,0 +1,108 @@
+name: Publish Helm chart to gh-pages
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helm-netbird
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Prepare gh-pages branch and compute chart version
+        id: prepare
+        run: |
+          set -e
+
+          # Get the latest tag from the source repository
+          latest_tag=$(git tag --list --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="0.1.0"
+          fi
+          echo "Source latest tag: $latest_tag"
+
+          # Try to clone gh-pages branch, or initialize if missing
+          mkdir -p helm-charts
+          GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
+          if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages > /dev/null; then
+            echo "gh-pages branch exists. Cloning..."
+            git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
+            cd helm-charts
+            # Find the highest N for netbird-X.Y.Z-N.tgz on the branch
+            max_ext=0
+            for f in netbird-${latest_tag}-*.tgz; do
+              if [ ! -e "$f" ]; then continue; fi
+              ext=$(echo "$f" | sed -nE "s/.*netbird-${latest_tag}-([0-9]+)\.tgz/\1/p")
+              if [ -n "$ext" ] && [ "$ext" -gt "$max_ext" ]; then
+                max_ext=$ext
+              fi
+            done
+            next_ext=$((max_ext + 1))
+            version="${latest_tag}-${next_ext}"
+            cd ..
+          else
+            echo "gh-pages branch DOES NOT exist. Initializing..."
+            git clone --no-checkout "$GH_REPO_URL" helm-charts
+            cd helm-charts
+            git checkout --orphan gh-pages
+            git rm -rf . || true
+            git config user.name 'GitHub Actions'
+            git config user.email 'actions@github.com'
+            version="${latest_tag}-1"
+            touch .nojekyll
+            git add .nojekyll
+            git commit -m "Initialize gh-pages with .nojekyll"
+            cd ..
+          fi
+
+          echo "Using chart version: $version"
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: Update Chart.yaml version
+        run: |
+          yq -i ".version = \"${VERSION}\"" Chart.yaml
+
+      - name: Package NetBird chart
+        run: |
+          mkdir -p packages
+          helm package ./ \
+            --version "${VERSION}" \
+            --destination packages
+
+      - name: Copy packaged chart to helm-charts root
+        run: |
+          cp packages/netbird-${VERSION}.tgz helm-charts/
+
+      - name: Regenerate index.yaml at repo root
+        run: |
+          cd helm-charts
+          INDEX_FILE="index.yaml"
+          if [ -f "${INDEX_FILE}" ]; then
+            helm repo index . \
+              --url 'https://cclloyd.github.io/helm-charts' \
+              --merge "${INDEX_FILE}"
+          else
+            helm repo index . \
+              --url 'https://cclloyd.github.io/helm-charts'
+          fi
+
+      - name: Commit & push to gh-pages
+        run: |
+          cd helm-charts
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          git add netbird-*.tgz index.yaml .nojekyll
+          git commit -m "[ci] Publish netbird chart ${VERSION}" || echo "Nothing to commit"
+          git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
+          git push origin gh-pages
