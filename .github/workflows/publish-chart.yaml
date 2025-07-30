@@ -19,11 +19,34 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v3
 
-      - name: Run Chart Releaser
+      - name: Set up yq
+        uses: mikefarah/yq@v4
+
+      - name: Bump Chart.yaml version for dev builds
+        if: startsWith(github.ref, 'refs/heads/dev')
+        run: |
+          # Fetch tags
+          git fetch --tags
+
+          # Find latest tag (strip 'v' prefix)
+          latest_tag=$(git tag --list 'v*.*.*' | sort -V | tail -n1 | sed 's/^v//')
+
+          # Find latest increment on dev branch (e.g., 1.1.2-3)
+          prefix="$latest_tag"
+          highest_increment=$(git tag --list "v${prefix}-*" | sed "s/v${prefix}-//" | sort -n | tail -n1)
+
+          if [[ -z "$highest_increment" ]]; then
+            new_version="${prefix}-1"
+          else
+            new_version="${prefix}-$((highest_increment + 1))"
+          fi
+
+          echo "Bumping version to $new_version"
+          yq -i ".version = \"$new_version\"" Chart.yaml
+
+      - name: Chart Releaser
         uses: helm/chart-releaser-action@v1.7.0
         env:
           CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
         with:
-          charts_dir: ./charts
-          charts_repo_url: https://cclloyd.github.io/helm-charts
-
+          charts_dir: .          # Use your chart directory if different
