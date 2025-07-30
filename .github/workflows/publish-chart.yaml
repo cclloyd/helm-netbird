@@ -26,7 +26,10 @@ jobs:
         id: prepare
         run: |
           set -e
-          # Get the latest tag from source repo as before
+          ref_type="${GITHUB_REF_TYPE:-}"
+          ref_name="${GITHUB_REF_NAME:-}"
+
+          # Find latest tag from source repo
           latest_tag=$(git ls-remote --tags origin \
             | awk '{print $2}' \
             | sed 's#refs/tags/##' \
@@ -36,37 +39,44 @@ jobs:
           if [ -z "$latest_tag" ]; then
             latest_tag="0.1.0"
           fi
-          echo "Source latest tag: $latest_tag"
 
           mkdir -p helm-charts
           GH_REPO_URL="https://github.com/cclloyd/helm-charts.git"
           if git ls-remote --exit-code --heads "$GH_REPO_URL" gh-pages > /dev/null; then
-            echo "gh-pages branch exists. Cloning..."
             git clone --single-branch --branch gh-pages "$GH_REPO_URL" helm-charts
             cd helm-charts
-
-            # Check if the base version exists
-            base_version_file="netbird-${latest_tag}.tgz"
-            if [ ! -e "${base_version_file}" ]; then
-              # The plain version doesn't exist: use it
-              version="${latest_tag}"
-            else
-              # The base version exists, so look for extension suffixes
-              max_ext=0
-              for f in netbird-${latest_tag}-*.tgz; do
-                if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
-                  num="${BASH_REMATCH[1]}"
-                  if [[ $num -gt $max_ext ]]; then
-                    max_ext=$num
+            # Figure out chart version logic based on branch/tag
+            if [[ "${GITHUB_REF}" == refs/heads/dev ]]; then
+              # On dev branch, append -N if necessary
+              base_version_file="netbird-${latest_tag}.tgz"
+              if [ ! -e "${base_version_file}" ]; then
+                version="${latest_tag}"
+              else
+                max_ext=0
+                for f in netbird-${latest_tag}-*.tgz; do
+                  if [[ "$f" =~ netbird-${latest_tag}-([0-9]+)\.tgz ]]; then
+                    num="${BASH_REMATCH[1]}"
+                    if [[ $num -gt $max_ext ]]; then
+                      max_ext=$num
+                    fi
                   fi
-                fi
-              done
-              next_ext=$((max_ext + 1))
-              version="${latest_tag}-${next_ext}"
+                done
+                next_ext=$((max_ext + 1))
+                version="${latest_tag}-${next_ext}"
+              fi
+            elif [[ "${GITHUB_REF}" =~ refs/tags/v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+              # On tag run, use the tag as version
+              version="${ref_name}"
+              # Remove 'v' prefix for Chart.yaml
+              if [[ $version =~ ^v ]]; then
+                version="${version:1}"
+              fi
+            else
+              version="${latest_tag}"
             fi
             cd ..
           else
-            echo "gh-pages branch DOES NOT exist. Initializing..."
+            # Initialize gh-pages branch if absent
             git clone --no-checkout "$GH_REPO_URL" helm-charts
             cd helm-charts
             git checkout --orphan gh-pages
@@ -79,9 +89,14 @@ jobs:
             git commit -m "Initialize gh-pages with .nojekyll"
             cd ..
           fi
-
-          echo "Using chart version: $version"
-          echo "VERSION=$version" >> $GITHUB_ENV
+          # Remove 'v' prefix for Chart.yaml (if not already removed)
+          version_for_chart="$version"
+          if [[ "$version_for_chart" =~ ^v ]]; then
+            version_for_chart="${version_for_chart:1}"
+          fi
+          echo "Using chart version: $version_for_chart"
+          echo "VERSION=${version_for_chart}" >> $GITHUB_ENV
+          echo "PKG_VERSION=$version" >> $GITHUB_ENV
 
       - name: Update Chart.yaml version
         run: |
@@ -97,14 +112,13 @@ jobs:
       - name: Copy packaged chart to subfolder (/charts/netbird)
         run: |
           mkdir -p helm-charts/charts/netbird
-          cp packages/netbird-${VERSION}.tgz helm-charts/charts/netbird/
+          cp packages/netbird-${PKG_VERSION}.tgz helm-charts/charts/netbird/
 
       - name: Regenerate index.yaml at root (recursive)
         run: |
           cd helm-charts
           CHARTS_URL='https://cclloyd.github.io/helm-charts/charts/netbird'
           INDEX_FILE="index.yaml"
-          # Helm repo index does NOT recurse, so index must be rebuilt by merging each time.
           if [ -f "${INDEX_FILE}" ]; then
             helm repo index charts/netbird \
               --url "${CHARTS_URL}" \
@@ -113,7 +127,6 @@ jobs:
             helm repo index charts/netbird \
               --url "${CHARTS_URL}"
           fi
-          # Move/Copy new index up to root
           cp charts/netbird/index.yaml .
 
       - name: Commit & push to gh-pages
@@ -122,6 +135,6 @@ jobs:
           git config user.name 'GitHub Actions'
           git config user.email 'actions@github.com'
           git add charts/netbird/netbird-*.tgz index.yaml .nojekyll
-          git commit -m "[ci] Publish netbird chart ${VERSION}" || echo "Nothing to commit"
+          git commit -m "[ci] Publish netbird chart ${PKG_VERSION}" || echo "Nothing to commit"
           git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
           git push origin gh-pages
