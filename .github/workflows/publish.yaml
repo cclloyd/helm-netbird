@@ -1,0 +1,75 @@
+name: Release Helm chart
+
+on:
+  push:
+    branches:
+      - dev
+    tags:
+      - '*'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      chart_version: ${{ steps.set-version.outputs.chart_version }}
+      is_tag: ${{ steps.set-version.outputs.is_tag }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # fetch all tags
+
+    - id: set-version
+      run: |
+        IS_TAG=false
+        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          IS_TAG=true
+          VERSION="${GITHUB_REF#refs/tags/}"
+        else
+          BASE_VERSION=$(git describe --tags --abbrev=0)
+          # Check how many dev versions we already have
+          COUNT=$(git tag --list "${BASE_VERSION}-*" | wc -l)
+          COUNT=$((COUNT + 1))
+          VERSION="${BASE_VERSION}-$COUNT"
+        fi
+        echo "Using chart version: $VERSION"
+        echo "chart_version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_tag=$IS_TAG" >> $GITHUB_OUTPUT
+
+    - name: Update Chart.yaml with determined version
+      run: |
+        yq -i ".version = \"${{ steps.set-version.outputs.chart_version }}\"" Chart.yaml
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: chart-version
+        path: Chart.yaml
+
+  release:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: chart-version
+        path: .
+
+    - uses: helm/chart-releaser-action@v1.7.0
+      env:
+        CR_OWNER: cclloyd
+        CR_GIT_REPO: helm-charts
+        CR_TOKEN: ${{ secrets.CR_TOKEN }}
+
+    - name: Push packaged chart and updated index to helm-charts (gh-pages)
+      run: |
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
+        # Clone helm-charts repo
+        git clone --single-branch --branch gh-pages https://x-access-token:${{ secrets.CR_TOKEN }}@github.com/cclloyd/helm-charts.git repo
+        cp -r .cr-release-packages/* repo/
+        cp .cr-index.yaml repo/index.yaml
+        cd repo
+        git add .
+        git commit -m "Update chart to version ${{ needs.prepare.outputs.chart_version }}"
+        git push
