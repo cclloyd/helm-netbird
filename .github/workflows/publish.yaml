@@ -1,4 +1,4 @@
-name: Release Helm chart
+name: Release Helm Chart
 
 on:
   push:
@@ -8,68 +8,69 @@ on:
       - '*'
 
 jobs:
-  prepare:
+  set-version:
     runs-on: ubuntu-latest
     outputs:
-      chart_version: ${{ steps.set-version.outputs.chart_version }}
-      is_tag: ${{ steps.set-version.outputs.is_tag }}
+      CHART_VERSION: ${{ steps.setver.outputs.version }}
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # fetch all tags
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - id: set-version
-      run: |
-        IS_TAG=false
-        if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-          IS_TAG=true
-          VERSION="${GITHUB_REF#refs/tags/}"
-        else
-          BASE_VERSION=$(git describe --tags --abbrev=0)
-          # Check how many dev versions we already have
-          COUNT=$(git tag --list "${BASE_VERSION}-*" | wc -l)
-          COUNT=$((COUNT + 1))
-          VERSION="${BASE_VERSION}-$COUNT"
-        fi
-        echo "Using chart version: $VERSION"
-        echo "chart_version=$VERSION" >> $GITHUB_OUTPUT
-        echo "is_tag=$IS_TAG" >> $GITHUB_OUTPUT
+      - name: Install yq
+        run: sudo apt-get install -y yq
 
-    - name: Update Chart.yaml with determined version
-      run: |
-        yq -i ".version = \"${{ steps.set-version.outputs.chart_version }}\"" Chart.yaml
+      - id: setver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            CHART_VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            BASE_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || yq '.version' Chart.yaml)
+            # Find max dev version using tags like 1.0.0-#
+            EXISTING=$(git tag | grep "^${BASE_VERSION}-" | grep -E '[0-9]+$' | sed "s/^${BASE_VERSION}-//" | sort -n | tail -1)
+            if [[ -z "$EXISTING" ]]; then
+              NEXT=1
+            else
+              NEXT=$((EXISTING + 1))
+            fi
+            CHART_VERSION="${BASE_VERSION}-${NEXT}"
+          fi
+          echo "Using version: $CHART_VERSION"
+          echo "version=$CHART_VERSION" >> $GITHUB_OUTPUT
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: chart-version
-        path: Chart.yaml
+      - name: Update Chart.yaml
+        run: yq -i ".version = \"${{ steps.setver.outputs.version }}\"" Chart.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: new-chart
+          path: Chart.yaml
 
   release:
-    needs: prepare
     runs-on: ubuntu-latest
+    needs: set-version
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - uses: actions/download-artifact@v4
-      with:
-        name: chart-version
-        path: .
+      - uses: actions/download-artifact@v4
+        with:
+          name: new-chart
+          path: .
 
-    - uses: helm/chart-releaser-action@v1.7.0
-      env:
-        CR_OWNER: cclloyd
-        CR_GIT_REPO: helm-charts
-        CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
+      - uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_OWNER: cclloyd
+          CR_GIT_REPO: helm-charts
+          CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
 
-    - name: Push packaged chart and updated index to helm-charts (gh-pages)
-      run: |
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
-        # Clone helm-charts repo
-        git clone --single-branch --branch gh-pages https://x-access-token:${{ secrets.CR_TOKEN }}@github.com/cclloyd/helm-charts.git repo
-        cp -r .cr-release-packages/* repo/
-        cp .cr-index.yaml repo/index.yaml
-        cd repo
-        git add .
-        git commit -m "Update chart to version ${{ needs.prepare.outputs.chart_version }}"
-        git push
+      - name: Push packaged chart and index.yaml to helm-charts repo
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git clone --single-branch --branch gh-pages https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git helm-charts
+          cp -r .cr-release-packages/* helm-charts/
+          cp .cr-index.yaml helm-charts/index.yaml
+          cd helm-charts
+          git add .
+          git commit -m "Update chart to version ${{ needs.set-version.outputs.CHART_VERSION }}"
+          git push
