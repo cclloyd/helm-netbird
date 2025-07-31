@@ -1,53 +1,125 @@
-name: Release Helm Chart
+name: Publish Helm chart helm-charts using main branch
+
+# define your chart name (and repo URL) once
+env:
+  CHART_NAME: netbird
+  HELM_CHARTS_REPO: https://github.com/cclloyd/helm-charts.git
 
 on:
   push:
+    branches:
+      - dev
     tags:
-      - 'v*.*.*' # Adjust this pattern if needed
+      - 'v*.*.*'
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
+      - name: Checkout helm-${{ env.CHART_NAME }}
+        uses: actions/checkout@v3
         with:
-          version: v3.14.0
+          fetch-depth: 0
 
-      - name: Configure git
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Prepare main branch and compute chart version
+        id: prepare
         run: |
-          git config --global user.email "github-actions@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
+          set -e
 
-      - name: Set CHART_VERSION from Git Tag
-        id: vars
+          # Find the latest semver tag: vX.X.X
+          latest_tag=$(git ls-remote --tags origin \
+            | awk '{print $2}' \
+            | sed 's#refs/tags/##' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n1)
+          latest_tag=${latest_tag:-v0.1.0}
+
+          mkdir -p helm-charts
+          if git ls-remote --exit-code --heads "$HELM_CHARTS_REPO" main >/dev/null; then
+            git clone --single-branch --branch main "$HELM_CHARTS_REPO" helm-charts
+            cd helm-charts
+            if [[ "${GITHUB_REF}" == "refs/heads/dev" ]]; then
+              base_version="${latest_tag#v}"
+              max_n=0
+              for f in ${CHART_NAME}-${base_version}-*.tgz; do
+                [[ $f =~ ${CHART_NAME}-${base_version}-([0-9]+)\.tgz ]] \
+                  && [[ ${BASH_REMATCH[1]} -gt $max_n ]] \
+                  && max_n=${BASH_REMATCH[1]}
+              done
+              version="${base_version}-$((max_n + 1))"
+            elif [[ "${GITHUB_REF}" =~ refs/tags/v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+              version="${BASH_REMATCH[1]}"
+            else
+              version="${latest_tag#v}"
+            fi
+            cd ..
+          else
+            git clone --no-checkout "$HELM_CHARTS_REPO" helm-charts
+            cd helm-charts
+            git checkout --orphan main
+            git rm -rf . || true
+            git config user.name 'GitHub Actions'
+            git config user.email 'actions@github.com'
+            version="${latest_tag#v}"
+            touch .nojekyll
+            git add .nojekyll
+            git commit -m "Initialize main with .nojekyll"
+            cd ..
+          fi
+
+          if [ -z "$version" ]; then
+            echo "ERROR: Could not determine chart version."
+            exit 1
+          fi
+
+          echo "Using chart version: $version"
+          echo "VERSION=$version" >> $GITHUB_ENV
+          echo "PKG_VERSION=$version" >> $GITHUB_ENV
+
+      - name: Update Chart.yaml version
         run: |
-          echo "tag=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          yq -i ".version = \"${VERSION}\"" Chart.yaml
 
-      - name: Update chart version in Chart.yaml
+      - name: Package ${{ env.CHART_NAME }} chart
         run: |
-          sed -i "s/^version:.*/version: ${{ steps.vars.outputs.tag }}/" charts/*/Chart.yaml
+          mkdir -p packages
+          helm package ./ \
+            --version "${VERSION}" \
+            --destination packages
 
-      - name: Package Helm charts
+      - name: Copy packaged chart to subfolder (/charts/${{ env.CHART_NAME }})
         run: |
-          mkdir -p packaged
-          for chart in charts/*; do
-            helm dependency update "$chart" || true
-            helm package "$chart" --destination packaged/
-          done
+          mkdir -p helm-charts/charts/${CHART_NAME}
+          cp packages/${CHART_NAME}-${PKG_VERSION}.tgz helm-charts/charts/${CHART_NAME}/
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.7.0
-        with:
-          charts_dir: packaged
-        env:
-          CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
-          CR_OWNER: cclloyd
-          CR_REPO: helm-charts
-          CR_PAGES_BRANCH: gh-pages
+      - name: Regenerate index.yaml at root (recursive)
+        run: |
+          cd helm-charts
+          CHARTS_URL="https://cclloyd.github.io/helm-charts/charts/${CHART_NAME}"
+          INDEX_FILE="index.yaml"
+          if [ -f "${INDEX_FILE}" ]; then
+            helm repo index charts/${CHART_NAME} \
+              --url "${CHARTS_URL}" \
+              --merge "${INDEX_FILE}"
+          else
+            helm repo index charts/${CHART_NAME} \
+              --url "${CHARTS_URL}"
+          fi
+          cp charts/${CHART_NAME}/index.yaml .
 
-      # Optional: Trigger index update in target repo if needed
+      - name: Commit & push to main
+        run: |
+          cd helm-charts
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          : > .nojekyll
+          git add charts/${CHART_NAME}/${CHART_NAME}-${PKG_VERSION}.tgz index.yaml .nojekyll
+          git commit -m "[ci] Publish ${CHART_NAME} chart ${PKG_VERSION}" || echo "Nothing to commit"
+          git remote set-url origin https://x-access-token:${{ secrets.HELM_CHARTS_PAT }}@github.com/cclloyd/helm-charts.git
+          git push origin main
