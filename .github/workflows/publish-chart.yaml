@@ -45,6 +45,10 @@ jobs:
 
           echo "Bumping version to $new_version"
           yq -i ".version = \"$new_version\"" Chart.yaml
+          
+          pwd
+          ls .github
+          ls .
 
       - name: Chart Releaser
         uses: helm/chart-releaser-action@v1.7.0
