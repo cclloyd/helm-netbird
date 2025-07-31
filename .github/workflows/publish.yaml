@@ -59,7 +59,7 @@ jobs:
       env:
         CR_OWNER: cclloyd
         CR_GIT_REPO: helm-charts
-        CR_TOKEN: ${{ secrets.CR_TOKEN }}
+        CR_TOKEN: ${{ secrets.HELM_CHARTS_PAT }}
 
     - name: Push packaged chart and updated index to helm-charts (gh-pages)
       run: |
