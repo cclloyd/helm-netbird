@@ -1,6 +1,5 @@
 name: Publish Helm chart helm-charts using main branch
 
-# define your chart name (and repo URL) once
 env:
   CHART_NAME: netbird
   HELM_CHARTS_REPO: https://github.com/cclloyd/helm-charts.git

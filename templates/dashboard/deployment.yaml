@@ -35,9 +35,9 @@ spec:
               protocol: TCP
           env:
             - name: NETBIRD_MGMT_API_ENDPOINT
-              value: "https://{{ required "global.domain must be set" .Values.global.domain }}:443"
+              value: "https://{{ required "global.domain.global must be set" (.Values.global.domain.management | default .Values.global.domain.global) }}:443"
             - name: NETBIRD_MGMT_GRPC_API_ENDPOINT
-              value: "https://{{ .Values.global.domain }}:443"
+              value: "https://{{ .Values.global.domain.management | default .Values.global.domain.global }}:443"
             - name: AUTH_AUDIENCE
               value: "{{ .Values.global.auth.audience }}"
             - name: AUTH_CLIENT_ID

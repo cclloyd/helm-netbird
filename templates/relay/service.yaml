@@ -3,6 +3,10 @@ kind: Service
 metadata:
   name: {{ include "netbird.fullname" . }}-relay
   namespace: {{ .Values.global.namespace }}
+  {{- with .Values.relay.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     netbird-app: {{ include "netbird.fullname" . }}-relay
     {{- include "netbird.labels" . | nindent 4 }}

@@ -6,7 +6,12 @@
 global:
   namespace: 'netbird'
   # Domain name used for access, ex netbird.example.com
-  domain: ''
+  domain:
+    global: ''
+    coturn: ''
+    signal: ''
+    management: ''
+    relay: ''
   # Enables secure connections from the load balancer for outside connections
   https: false
   external_ip: ''
@@ -56,7 +61,7 @@ global:
 dashboard:
   image:
     repository: netbirdio/dashboard
-    tag: v2.15.0
+    tag: v2.20.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -69,6 +74,7 @@ dashboard:
   readinessProbe:
   service:
     type: ClusterIP
+    annotations: {}
   extra_volumes: []
   extra_volumeMounts: []
 
@@ -76,7 +82,7 @@ dashboard:
 management:
   image:
     repository: netbirdio/management
-    tag: 0.52.2
+    tag: 0.59.12
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -89,6 +95,7 @@ management:
   readinessProbe:
   service:
     type: ClusterIP
+    annotations: {}
   extra_volumes: []
   extra_volumeMounts: []
   extra_args: []
@@ -113,7 +120,7 @@ management:
 relay:
   image:
     repository: netbirdio/relay
-    tag: 0.52.2
+    tag: 0.59.12
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -124,6 +131,7 @@ relay:
   resources: {}
   service:
     type: ClusterIP
+    annotations: {}
   extra_volumes: []
   extra_volumeMounts: []
   extra_env: {}
@@ -132,7 +140,7 @@ relay:
 signal:
   image:
     repository: netbirdio/signal
-    tag: 0.52.2
+    tag: 0.59.12
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -145,6 +153,7 @@ signal:
   readinessProbe:
   service:
     type: ClusterIP
+    annotations: {}
   extra_volumes: []
   extra_volumeMounts: []
   persistence:

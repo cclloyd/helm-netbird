@@ -64,7 +64,7 @@ spec:
             - '--log-level'
             - 'info'
             - '--disable-anonymous-metrics=false'
-            - "--single-account-mode-domain={{ .Values.global.domain }}"
+            - "--single-account-mode-domain={{ .Values.global.domain.global }}"
             {{- range .Values.management.extra_args }}
             - "{{ . }}"
             {{- end }}
