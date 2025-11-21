@@ -51,6 +51,13 @@ global:
     className: ''
     annotations: {}
     extra_hosts: []
+  route:
+    enabled: false
+    vendor: 'envoy'
+    parentRefs: []
+    # Relay likely uses a different port in the gateway, so you can specify a different parent ref here
+    relayParentRefs: []
+    annotations: {}
   serviceAccount:
     create: true
     automount: true
@@ -61,7 +68,7 @@ global:
 dashboard:
   image:
     repository: netbirdio/dashboard
-    tag: v2.20.2
+    tag: v2.22.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -82,7 +89,7 @@ dashboard:
 management:
   image:
     repository: netbirdio/management
-    tag: 0.59.12
+    tag: 0.60.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -120,7 +127,7 @@ management:
 relay:
   image:
     repository: netbirdio/relay
-    tag: 0.59.12
+    tag: 0.60.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -140,7 +147,7 @@ relay:
 signal:
   image:
     repository: netbirdio/signal
-    tag: 0.59.12
+    tag: 0.60.2
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}

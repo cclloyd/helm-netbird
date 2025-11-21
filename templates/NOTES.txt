@@ -4,7 +4,7 @@
   ))))))))))))))))f))))))))))))))
     )))))))))))))fffff1)))))))))      Installation complete!
       ))))))))))ffffffff)))))))
-        ))))))fffffffffff))))         Access the dashboard at https://{{ .Values.global.domain }}/
+        ))))))fffffffffff))))         Access the dashboard at https://{{ .Values.global.domain.management | default .Values.global.domain.global }}/
           )))fffffffffffff))
             ffffffffffffff)           Further steps:
            )))ffffffffffff              - Be the first user to sign-in to ensure that your user account is the admin for the team.
