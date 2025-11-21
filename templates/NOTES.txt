@@ -8,6 +8,6 @@
           )))fffffffffffff))
             ffffffffffffff)           Further steps:
            )))ffffffffffff              - Be the first user to sign-in to ensure that your user account is the admin for the team.
-         )))))))ffffffff                - Ensure that the "{{ include "netbird.fullname" . }}-relay" service is reachable at {{ .Values.global.domain }}:33080 and 3478 from the internet.
-        ))))))))))fffff
+         )))))))ffffffff                - Ensure that the "{{ include "netbird.fullname" . }}-relay" service is reachable at {{ .Values.global.domain.relay | default .Values.global.domain.global }}}:{{ .Values.global.relay.port }} from the internet.
+        ))))))))))fffff                 - Ensure that the host node that has the coturn pod is reachable from the internet at {{ .Values.global.domain.coturn | default .Values.global.domain.global }}}:{{ .Values.global.coturn.port }}
        )))))))))))))ff

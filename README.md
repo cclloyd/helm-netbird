@@ -25,7 +25,7 @@ To use the minimal setup, you will require
    global:
      domain: netbird.example.com
      external_ip: 198.51.100.42
-     https: true  # Highly recommended you access via https
+     https: true  # Highly recommended you access via https; required for GatewayAPI.
    auth:
      client: 'your client'
      secret: 'your client secret'
@@ -33,13 +33,13 @@ To use the minimal setup, you will require
    ```
 2. Ensure coturn ports (default `49160-49200`) are being forwarded to the node the pod will be running on.
     - Recommend you set `coturn.affinity.nodeAffinity` so that you can ensure it's always running on a specific node.
-3. Run `helm install ./ netbird -f my_values.yaml`
-4. Once it's done setting itself, up, access it at your external URL. The first user to login (redirected from the auth
+3. Fill out one of ingress or route config to access the service.
+4. Run `helm install ./ netbird -f my_values.yaml`
+5. Once it's done setting itself, up, access it at your external URL. The first user to login (redirected from the auth
    provider) will be set as an admin.
 
 > NOTE: The `coturn` pod run with `networkMode: host` since it requires a large range of ports. This needs to be
-> accessible from outside the cluster. The easiest way is to set the coturn service type as `LoadBalancer` and forward
-> traffic for coturn port ranges to the load balancer address.
+> accessible from outside the cluster.
 
 
 
