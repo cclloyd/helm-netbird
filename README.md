@@ -3,7 +3,6 @@
   <img src="https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png" width="60" style="vertical-align: middle;" />
 </p>
 
-
 # Netbird Helm Chart
 
 This chart provides a means of deploying Netbird to kubernetes.
@@ -21,24 +20,26 @@ To use the minimal setup, you will require
 - A valid hostname and the ability to access it via HTTPS
 - A working Auth provider (default config is for Keycloak)
 
-1.  Fill out required config
-    ```yaml
-    global:
-      domain: netbird.example.com
-      external_ip: 198.51.100.42
-      https: true  # Highly recommended you access via https
-    auth:
-      client: 'your client'
-      secret: 'your client secret'
-      ...any remaining auth config
-    ```
+1. Fill out required config
+   ```yaml
+   global:
+     domain: netbird.example.com
+     external_ip: 198.51.100.42
+     https: true  # Highly recommended you access via https
+   auth:
+     client: 'your client'
+     secret: 'your client secret'
+     ...any remaining auth config
+   ```
 2. Ensure coturn ports (default `49160-49200`) are being forwarded to the node the pod will be running on.
-   - Recommend you set `coturn.affinity.nodeAffinity` so that you can ensure it's always running on a specific node.
+    - Recommend you set `coturn.affinity.nodeAffinity` so that you can ensure it's always running on a specific node.
 3. Run `helm install ./ netbird -f my_values.yaml`
-4. Once it's done setting itself, up, access it at your external URL.  The first user to login (redirected from the auth provider) will be set as an admin.
-    
+4. Once it's done setting itself, up, access it at your external URL. The first user to login (redirected from the auth
+   provider) will be set as an admin.
 
-> NOTE: The `coturn` pod run with `networkMode: host` since it requires a large range of ports.  This needs to be accessible from outside the cluster.  The easiest way is to set the coturn service type as `LoadBalancer` and forward traffic for coturn port ranges to the load balancer address.
+> NOTE: The `coturn` pod run with `networkMode: host` since it requires a large range of ports. This needs to be
+> accessible from outside the cluster. The easiest way is to set the coturn service type as `LoadBalancer` and forward
+> traffic for coturn port ranges to the load balancer address.
 
 
 
@@ -49,41 +50,46 @@ To use the minimal setup, you will require
 
 ## Global Settings
 
-| config                            | description                                            | default                |
-|-----------------------------------|--------------------------------------------------------|------------------------|
-| global.namespace                  | Namespace for Netbird                                  | `'netbird'`            |
-| global.domain                     | Domain name used for access (e.g. netbird.example.com) | `''`                   |
-| global.https                      | Enables HTTPS for external connections                 | `false`                |
-| global.external_ip                | External IP to use                                     | `''`                   |
-| global.auth.provider              | OIDC compliant auth provider                           | `'keycloak'`           |
-| global.auth.issuer                | Auth issuer URL                                        | `''`                   |
-| global.auth.admin                 | Keycloak admin URL                                     | `''`                   |
-| global.auth.extra_scopes          | Extra OAuth2 scopes                                    | `'offline_access api'` |
-| global.auth.client                | OAuth2 client                                          | `''`                   |
-| global.auth.secret                | OAuth2 secret                                          | `''`                   |
-| global.auth.audience              | OAuth2 audience                                        | `''`                   |
-| global.auth.username_claim        | Claim for username in JWT                              | `'preferred_username'` |
-| global.auth.backend.client        | Backend OAuth2 client                                  | `''`                   |
-| global.auth.backend.secret        | Backend OAuth2 secret                                  | `''`                   |
-| global.auth.backend.audience      | Backend OAuth2 audience                                | `''`                   |
-| global.auth.backend.extra_scopes  | Backend extra OAuth2 scopes                            | `'offline_access api'` |
-| global.dashboard.port             | Dashboard HTTP port                                    | `80`                   |
-| global.management.port            | Management HTTP port                                   | `80`                   |
-| global.relay.port                 | Relay port                                             | `33080`                |
-| global.relay.secret               | Relay secret                                           | `''`                   |
-| global.signal.port                | Signal HTTP port                                       | `80`                   |
-| global.coturn.port                | Coturn port                                            | `3478`                 |
-| global.coturn.secret              | Coturn secret                                          | `''`                   |
-| global.coturn.min_port            | Coturn minimum UDP port                                | `49160`                |
-| global.coturn.max_port            | Coturn maximum UDP port                                | `49200`                |
-| global.ingress.enabled            | Enable ingress for service                             | `false`                |
-| global.ingress.className          | Ingress class name                                     | `''`                   |
-| global.ingress.annotations        | Ingress annotations                                    | `{}`                   |
-| global.ingress.extra_hosts        | Extra ingress hosts                                    | `[]`                   |
-| global.serviceAccount.create      | Create service account                                 | `true`                 |
-| global.serviceAccount.automount   | Auto-mount service account                             | `true`                 |
-| global.serviceAccount.annotations | Service account annotations                            | `{}`                   |
-| global.serviceAccount.name        | Service account name                                   | `""`                   |
+| config                            | description                                                                                          | default                |
+|-----------------------------------|------------------------------------------------------------------------------------------------------|------------------------|
+| global.namespace                  | Namespace for Netbird                                                                                | `'netbird'`            |
+| global.domain                     | Domain name used for access (e.g. netbird.example.com)                                               | `''`                   |
+| global.https                      | Enables HTTPS for external connections                                                               | `false`                |
+| global.external_ip                | External IP to use                                                                                   | `''`                   |
+| global.auth.provider              | OIDC compliant auth provider                                                                         | `'keycloak'`           |
+| global.auth.issuer                | Auth issuer URL                                                                                      | `''`                   |
+| global.auth.admin                 | Keycloak admin URL                                                                                   | `''`                   |
+| global.auth.extra_scopes          | Extra OAuth2 scopes                                                                                  | `'offline_access api'` |
+| global.auth.client                | OAuth2 client                                                                                        | `''`                   |
+| global.auth.secret                | OAuth2 secret                                                                                        | `''`                   |
+| global.auth.audience              | OAuth2 audience                                                                                      | `''`                   |
+| global.auth.username_claim        | Claim for username in JWT                                                                            | `'preferred_username'` |
+| global.auth.backend.client        | Backend OAuth2 client                                                                                | `''`                   |
+| global.auth.backend.secret        | Backend OAuth2 secret                                                                                | `''`                   |
+| global.auth.backend.audience      | Backend OAuth2 audience                                                                              | `''`                   |
+| global.auth.backend.extra_scopes  | Backend extra OAuth2 scopes                                                                          | `'offline_access api'` |
+| global.dashboard.port             | Dashboard HTTP port                                                                                  | `80`                   |
+| global.management.port            | Management HTTP port                                                                                 | `80`                   |
+| global.relay.port                 | Relay port                                                                                           | `33080`                |
+| global.relay.secret               | Relay secret                                                                                         | `''`                   |
+| global.signal.port                | Signal HTTP port                                                                                     | `80`                   |
+| global.coturn.port                | Coturn port                                                                                          | `3478`                 |
+| global.coturn.secret              | Coturn secret                                                                                        | `''`                   |
+| global.coturn.min_port            | Coturn minimum UDP port                                                                              | `49160`                |
+| global.coturn.max_port            | Coturn maximum UDP port                                                                              | `49200`                |
+| global.ingress.enabled            | Enable ingress for service                                                                           | `false`                |
+| global.ingress.className          | Ingress class name                                                                                   | `''`                   |
+| global.ingress.annotations        | Ingress annotations                                                                                  | `{}`                   |
+| global.ingress.extra_hosts        | Extra ingress hosts                                                                                  | `[]`                   |
+| global.route.enabled              | Enable GatewayAPI access                                                                             | `false`                |
+| global.route.vendor               | Type of GatewayAPI installed, eg. `envoy`.  Automatically installs traffic policies to fix timeouts. | `''`                   |
+| global.route.parentRefs           | The gateway parentRefs                                                                               | `[]`                   |
+| global.route.relayParentRefs      | Relay likely uses a different port in the gateway, so you can specify a different parent ref here    | `[]`                   |
+| global.route.annotations          | Annotations to apply to GatewayAPI resources                                                         | `{}`                   |
+| global.serviceAccount.create      | Create service account                                                                               | `true`                 |
+| global.serviceAccount.automount   | Auto-mount service account                                                                           | `true`                 |
+| global.serviceAccount.annotations | Service account annotations                                                                          | `{}`                   |
+| global.serviceAccount.name        | Service account name                                                                                 | `""`                   |
 
 ## Component Specific Settings
 

@@ -53,7 +53,7 @@ global:
     extra_hosts: []
   route:
     enabled: false
-    vendor: 'envoy'
+    vendor: ''
     parentRefs: []
     # Relay likely uses a different port in the gateway, so you can specify a different parent ref here
     relayParentRefs: []
