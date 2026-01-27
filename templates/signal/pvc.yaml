@@ -1,9 +1,19 @@
 {{- if and .Values.signal.persistence.enabled (not .Values.signal.persistence.existingClaim) }}
+{{- $fullName := include "netbird.fullname" . -}}
+{{- $pvcName := printf "%s-signal" $fullName -}}
+
+{{- $storageClass := .Values.signal.persistence.storageClass -}}
+{{- if not $storageClass -}}
+  {{- $existing := lookup "v1" "PersistentVolumeClaim" .Release.Namespace $pvcName -}}
+  {{- if and $existing $existing.spec $existing.spec.storageClassName -}}
+    {{- $storageClass = $existing.spec.storageClassName -}}
+  {{- end -}}
+{{- end -}}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "netbird.fullname" . }}-signal
+  name: {{ $fullName }}-signal
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "netbird.labels" . | nindent 4 }}
@@ -20,7 +30,9 @@ spec:
   resources:
     requests:
       storage: {{ .Values.signal.persistence.size | quote }}
-  storageClassName: {{ .Values.signal.persistence.storageClass }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass | quote }}
+  {{- end }}
   {{- if .Values.signal.persistence.volumeMode }}
   volumeMode: {{ .Values.signal.persistence.volumeMode | quote }}
   {{- end }}

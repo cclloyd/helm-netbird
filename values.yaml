@@ -7,39 +7,24 @@ global:
   namespace: 'netbird'
   # Domain name used for access, ex netbird.example.com
   domain:
-    global: ''
+    global: '' # This is the only required domain.  The below ones are optional for if your network topology requires them.
+    vpn: ''  # This is the domain used internally by netbird for vpn clients.
     coturn: ''
     signal: ''
     management: ''
     relay: ''
-  # Enables secure connections from the load balancer for outside connections
-  https: false
-  external_ip: ''
-  auth:
-    provider: 'keycloak'
-    issuer: ''  # https://keycloak.example.com/realms/master
-    admin: ''   # https://keycloak.example.com/admin/realms/master
-    extra_scopes: 'offline_access api'
-    client: ''
-    secret: ''  # Not needed if following Netbird keycloak guide
-    audience: ''
-    username_claim: preferred_username
-    backend:
-      client: ''
-      secret: ''  # Is needed if following Netbird keycloak guide
-      audience: ''
-      extra_scopes: 'offline_access api'
-
   dashboard:
     port: 80
   management:
     port: 80
+    encryption_key: '' # openssl rand -base64 32
   relay:
-    port: 33080
+    port: 80
     secret: ''
   signal:
     port: 80
   coturn:
+    enabled: false
     port: 3478
     secret: ''
     # Defines port range for media exchange
@@ -51,6 +36,7 @@ global:
     className: ''
     annotations: {}
     extra_hosts: []
+
   route:
     enabled: false
     vendor: ''
@@ -58,6 +44,7 @@ global:
     # Relay likely uses a different port in the gateway, so you can specify a different parent ref here
     relayParentRefs: []
     annotations: {}
+
   serviceAccount:
     create: true
     automount: true
@@ -68,7 +55,7 @@ global:
 dashboard:
   image:
     repository: netbirdio/dashboard
-    tag: v2.22.2
+    tag: v2.28.0
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -89,7 +76,7 @@ dashboard:
 management:
   image:
     repository: netbirdio/management
-    tag: 0.60.2
+    tag: 0.64.1
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -111,8 +98,9 @@ management:
     storageClass:
     volumeName: 'data'
     existingClaim: ''
+    dataDir: /var/lib/netbird
     mountPath: /var/lib/netbird
-    configMountPath: /etc/netbird
+    configMountPath: /etc/netbird/management.json
     subPath: ''
     accessModes:
       - ReadWriteOnce
@@ -127,7 +115,7 @@ management:
 relay:
   image:
     repository: netbirdio/relay
-    tag: 0.60.2
+    tag: 0.64.1
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}
@@ -147,7 +135,7 @@ relay:
 signal:
   image:
     repository: netbirdio/signal
-    tag: 0.60.2
+    tag: 0.64.1
     pullPolicy: IfNotPresent
   annotations: {}
   labels: {}

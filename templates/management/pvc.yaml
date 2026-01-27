@@ -1,15 +1,25 @@
 {{- if and .Values.management.persistence.enabled (not .Values.management.persistence.existingClaim) }}
+{{- $fullName := include "netbird.fullname" . -}}
+{{- $pvcName := printf "%s-management" $fullName -}}
+
+{{- $storageClass := .Values.management.persistence.storageClass -}}
+{{- if not $storageClass -}}
+  {{- $existing := lookup "v1" "PersistentVolumeClaim" .Release.Namespace $pvcName -}}
+  {{- if and $existing $existing.spec $existing.spec.storageClassName -}}
+    {{- $storageClass = $existing.spec.storageClassName -}}
+  {{- end -}}
+{{- end -}}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "netbird.fullname" . }}-management
+  name: {{ $pvcName }}
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "netbird.labels" . | nindent 4 }}
   annotations:
     "helm.sh/resource-policy": keep
-    {{- with .Values.signal.persistence.annotations }}
+    {{- with .Values.management.persistence.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
@@ -20,7 +30,9 @@ spec:
   resources:
     requests:
       storage: {{ .Values.management.persistence.size | quote }}
-  storageClassName: {{ .Values.management.persistence.storageClass }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass | quote }}
+  {{- end }}
   {{- if .Values.management.persistence.volumeMode }}
   volumeMode: {{ .Values.management.persistence.volumeMode | quote }}
   {{- end }}

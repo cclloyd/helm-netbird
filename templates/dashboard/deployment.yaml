@@ -39,21 +39,21 @@ spec:
             - name: NETBIRD_MGMT_GRPC_API_ENDPOINT
               value: "https://{{ .Values.global.domain.management | default .Values.global.domain.global }}:443"
             - name: AUTH_AUDIENCE
-              value: "{{ .Values.global.auth.audience }}"
+              value: "netbird-dashboard"
             - name: AUTH_CLIENT_ID
-              value: "{{ .Values.global.auth.client }}"
+              value: "netbird-dashboard"
+            - name: AUTH_CLIENT_SECRET
+              value: ""
             - name: AUTH_AUTHORITY
-              value: "{{ .Values.global.auth.issuer }}"
+              value: "https://{{ .Values.global.domain.management | default .Values.global.domain.global }}/oauth2"
             - name: USE_AUTH0
-              value: {{ eq .Values.global.auth.provider "auth0" | quote }}
+              value: 'false'
             - name: AUTH_SUPPORTED_SCOPES
-              value: "openid profile email {{ .Values.global.auth.extra_scopes }}"
+              value: "openid profile email groups"
             - name: AUTH_REDIRECT_URI
-              value: ""
+              value: "/nb-auth"
             - name: AUTH_SILENT_REDIRECT_URI
-              value: ""
-            - name: NETBIRD_TOKEN_SOURCE
-              value: "accessToken"
+              value: "/nb-silent-auth"
             - name: NGINX_SSL_PORT
               value: "443"
           livenessProbe:

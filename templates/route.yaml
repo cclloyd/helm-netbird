@@ -29,6 +29,12 @@ spec:
         - path:
             type: PathPrefix
             value: /api
+        - path:
+            type: PathPrefix
+            value: /oauth2
+        - path:
+            type: PathPrefix
+            value: /ws-proxy/management
       timeouts:
         request: 3600s
         backendRequest: 3600s
@@ -115,12 +121,48 @@ spec:
   timeout:
     http:
       requestTimeout: 0s
-      connectionIdleTimeout: 3600s
+      connectionIdleTimeout: 86400s
   tcpKeepalive:
     idleTime: 30s
     interval: 30s
     probes: 5
 {{- end }}
+
+
+
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ $fullName }}-signal
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+  {{- with .Values.global.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.global.route.parentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  hostnames:
+    - '{{ .Values.global.domain.signal | default .Values.global.domain.global }}'
+  rules:
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: {{ $fullName }}-signal
+          port: {{ .Values.global.dashboard.port }}
+      matches:
+        - path:
+            type: PathPrefix
+            value: /ws-proxy/signal
+      timeouts:
+        request: 3600s
+        backendRequest: 3600s
+
 
 
 ---
@@ -169,7 +211,7 @@ spec:
   timeout:
     http:
       requestTimeout: 0s
-      connectionIdleTimeout: 3600s
+      connectionIdleTimeout: 86400s
   tcpKeepalive:
     idleTime: 30s
     interval: 30s
@@ -177,9 +219,10 @@ spec:
 {{- end }}
 
 
+
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
   name: {{ $fullName }}-relay
   namespace: {{ .Values.global.namespace }}
@@ -190,19 +233,56 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if not (empty .Values.global.route.relayParentRefs) }}
+  {{- with .Values.global.route.parentRefs }}
   parentRefs:
-      {{- toYaml .Values.global.route.relayParentRefs | nindent 4 }}
-  {{- else if .Values.global.route.parentRefs }}
-  parentRefs:
-      {{- toYaml .Values.global.route.parentRefs | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
+  hostnames:
+    - '{{ .Values.global.domain.relay | default .Values.global.domain.global }}'
   rules:
     - backendRefs:
         - group: ''
           kind: Service
-          name: {{ $fullName }}-relay
+          name: {{ $fullName }}-relay-tcp
           port: {{ .Values.global.relay.port }}
+      matches:
+        - path:
+            type: PathPrefix
+            value: /relay
+      timeouts:
+        request: 3600s
+        backendRequest: 3600s
+
+
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: {{ $fullName }}-coturn
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+  {{- with .Values.global.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.global.route.relayParentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  hostnames:
+    - '{{ .Values.global.domain.global }}'
+  rules:
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: {{ $fullName }}-relay-udp
+          port: {{ .Values.global.relay.port }}
+      timeouts:
+        request: 3600s
+        backendRequest: 3600s
+
 
 
 {{- end }}

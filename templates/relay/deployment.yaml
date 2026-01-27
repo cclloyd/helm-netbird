@@ -33,13 +33,24 @@ spec:
             - name: http
               containerPort: {{ .Values.global.relay.port }}
               protocol: TCP
+            - name: relay
+              containerPort: {{ .Values.global.relay.port }}
+              protocol: UDP
           env:
             - name: NB_LOG_LEVEL
               value: 'info'
             - name: NB_LISTEN_ADDRESS
               value: ':{{ .Values.global.relay.port }}'
             - name: NB_EXPOSED_ADDRESS
-              value: "rel://{{ .Values.global.domain.relay | default .Values.global.domain.global }}:{{ .Values.global.relay.port }}/relay"
+              value: "rels://{{ .Values.global.domain.relay | default .Values.global.domain.global }}:{{ .Values.global.relay.port }}/relay"
+            - name: NB_ENABLE_STUN
+              value: 'true'
+            - name: NB_STUN_LOG_LEVEL
+              value: 'true'
+            - name: NB_STUN_PORTS
+              value: '3478'
+            - name: AUTH_AUTHORITY
+              value: "https://{{ .Values.global.domain.management | default .Values.global.domain.global }}/oauth2"
             - name: NB_AUTH_SECRET
               value: {{ .Values.global.relay.secret }}
           {{- with .Values.relay.resources }}

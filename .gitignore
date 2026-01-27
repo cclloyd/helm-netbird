@@ -3,3 +3,5 @@ env/*
 junk
 .idea
 .vscode
+values_dev.yml
+notes.yaml

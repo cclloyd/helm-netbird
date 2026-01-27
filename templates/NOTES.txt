@@ -2,7 +2,7 @@
                       )))))))))))))
      ))))))))      )))))))))))))))
   ))))))))))))))))f))))))))))))))
-    )))))))))))))fffff1)))))))))      Installation complete!
+    )))))))))))))fffff))))))))))      Installation complete!
       ))))))))))ffffffff)))))))
         ))))))fffffffffff))))         Access the dashboard at https://{{ .Values.global.domain.management | default .Values.global.domain.global }}/
           )))fffffffffffff))
