@@ -31,6 +31,22 @@ global:
     min_port: 49160
     max_port: 49200
 
+  persistence:
+    enabled: true
+    storageClass:
+    volumeName: 'data'
+    existingClaim: ''
+    accessModes:
+      - ReadWriteOnce
+    size: 4Gi
+    volumeMode:
+    annotations: {}
+    labels: {}
+    selector: {}
+    dataSource: {}
+    overrideVolume:
+    overrideVolumeMount:
+
   ingress:
     enabled: false
     className: ''
@@ -94,22 +110,10 @@ management:
   extra_volumeMounts: []
   extra_args: []
   persistence:
-    enabled: true
-    storageClass:
-    volumeName: 'data'
-    existingClaim: ''
     dataDir: /var/lib/netbird
     mountPath: /var/lib/netbird
     configMountPath: /etc/netbird/management.json
-    subPath: ''
-    accessModes:
-      - ReadWriteOnce
-    size: 1Gi
-    volumeMode:
-    annotations: {}
-    labels: {}
-    selector: {}
-    dataSource: {}
+    subPath: 'management'
 
 
 relay:
@@ -152,22 +156,8 @@ signal:
   extra_volumes: []
   extra_volumeMounts: []
   persistence:
-    enabled: true
-    storageClass:
-    volumeName: 'data'
-    existingClaim: ''
     mountPath: /var/lib/netbird
-    subPath: ''
-    accessModes:
-      - ReadWriteOnce
-    size: 1Gi
-    volumeMode:
-    annotations: {}
-    labels: {}
-    selector: {}
-    dataSource: {}
-    overrideVolume:
-    overrideVolumeMount:
+    subPath: 'signal'
 
 
 

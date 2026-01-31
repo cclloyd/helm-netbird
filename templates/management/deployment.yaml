@@ -70,8 +70,8 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            - name: {{ .Values.management.persistence.volumeName }}
-              subPath: data
+            - name: {{ .Values.global.persistence.volumeName }}
+              subPath: {{ .Values.management.persistence.subPath }}
               mountPath: {{ .Values.management.persistence.mountPath }}
             - name: config
               subPath: management.json
@@ -87,10 +87,10 @@ spec:
         - name: config
           configMap:
             name: {{ include "netbird.fullname" . }}-config
-        - name: {{ .Values.management.persistence.volumeName }}
-          {{- if .Values.management.persistence.enabled }}
+        - name: {{ .Values.global.persistence.volumeName }}
+          {{- if .Values.global.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{- if .Values.management.persistence.existingClaim }} {{ .Values.management.persistence.existingClaim }}{{- else }} {{ include "netbird.fullname" . }}-management{{- end }}
+                claimName: {{- if .Values.global.persistence.existingClaim }} {{ .Values.global.persistence.existingClaim }}{{- else }} {{ include "netbird.fullname" . }}-{{ .Values.global.persistence.volumeName }}{{- end }}
           {{- else }}
           emptyDir:
             sizeLimit: 1Gi
