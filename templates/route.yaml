@@ -79,7 +79,7 @@ spec:
 
 
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha3
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: UDPRoute
 metadata:
   name: {{ $fullName }}-stun
@@ -95,8 +95,8 @@ spec:
   parentRefs:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  hostnames:
-    - '{{ .Values.global.domain.global }}'
+  # hostnames:
+  #   - '{{ .Values.global.domain.global }}'
   rules:
     - backendRefs:
         - group: ''
