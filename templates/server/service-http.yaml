@@ -1,0 +1,25 @@
+{{- /*
+HTTP/1.1 sibling of the server Service.
+Used by HTTPRoute paths (/api, /oauth2, /ws-proxy, /relay, /nb-auth).
+The gRPC GRPCRoute uses the main {{ include "netbird.fullname" . }}-server
+Service (appProtocol: kubernetes.io/h2c). They can't share one Service
+because WebSocket upgrade headers don't survive HTTP/2 translation.
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "netbird.fullname" . }}-server-http
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "netbird.labels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-server
+spec:
+  type: {{ .Values.server.service.type }}
+  ports:
+    - name: http
+      targetPort: http
+      protocol: TCP
+      port: {{ .Values.global.server.port }}
+  selector:
+    {{- include "netbird.selectorLabels" . | nindent 4 }}
+    netbird-app: {{ include "netbird.fullname" . }}-server
