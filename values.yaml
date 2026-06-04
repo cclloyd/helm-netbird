@@ -15,6 +15,7 @@ global:
     port: 80
     stun_port: 3478
     encryption_key: '' # openssl rand -base64 32
+    authSecret: ''   # required at install time
 
   persistence:
     enabled: true
