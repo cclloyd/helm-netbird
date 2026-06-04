@@ -12,6 +12,7 @@ spec:
     - name: http
       targetPort: http
       protocol: TCP
+      appProtocol: kubernetes.io/h2c
       port: {{ .Values.global.server.port }}
     - name: stun
       targetPort: stun
