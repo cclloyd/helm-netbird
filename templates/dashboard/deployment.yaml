@@ -39,25 +39,27 @@ spec:
             - name: NETBIRD_MGMT_GRPC_API_ENDPOINT
               value: "https://{{ .Values.global.domain.global }}:443"
             - name: AUTH_AUDIENCE
-              value: "netbird-dashboard"
+              value: "netbird"
             - name: AUTH_CLIENT_ID
-              value: "netbird-dashboard"
+              value: "netbird"
             - name: AUTH_CLIENT_SECRET
-              value: ""
+              value: "fb65a7f8ca5071977c3f1d517b1abe47b4ec1ccccbaa1d9e28d1b60e9a9c2181"
             - name: AUTH_AUTHORITY
-              value: "https://{{ .Values.global.domain.global }}/oauth2"
+              value: "https://authelia.home.davidandersen.us"
             - name: USE_AUTH0
               value: 'false'
             - name: AUTH_SUPPORTED_SCOPES
-              value: "openid profile email groups"
+              value: "openid email profile"
             - name: AUTH_REDIRECT_URI
-              value: "/nb-auth"
+              value: "/peers"
             - name: AUTH_SILENT_REDIRECT_URI
-              value: "/nb-silent-auth"
-            - name: NGINX_SSL_PORT
-              value: "443"
-            - name: LETSENCRYPT_DOMAIN
-              value: "none"
+              value: "/add-peers"
+            # - name: NGINX_SSL_PORT
+            #   value: "443"
+            # - name: LETSENCRYPT_DOMAIN
+            #   value: "none"
+            - name: NETBIRD_TOKEN_SOURCE
+              value: idToken
           livenessProbe:
             {{- if .Values.dashboard.livenessProbe }}
             {{- toYaml .Values.dashboard.livenessProbe | nindent 12 }}
