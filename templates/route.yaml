@@ -95,8 +95,8 @@ spec:
   parentRefs:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  hostnames:
-    - '{{ .Values.global.domain.global }}'
+  # hostnames:
+  #   - '{{ .Values.global.domain.global }}'
   rules:
     - backendRefs:
         - group: ''
